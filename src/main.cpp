@@ -235,9 +235,10 @@ void OLED_Update() {
             display.drawBitmap(0, 0, Title, 128, 8, SSD1306_WHITE);
             display.drawBitmap(2, 8, BT, 8, 8, SSD1306_WHITE);
             display.setTextSize(1);
+            display.fillRect(10, 8, 66, 8, SSD1306_BLACK);  // 清除连接状态区域
             display.setCursor(10, 8);
             if (sysStatus.bleConnected) {
-                display.print("Connected  ");
+                display.print("Connected");
             } else {
                 display.print("Unconnected");
             }
@@ -338,6 +339,7 @@ void OLED_Update() {
 
             char presetInfo[8];
             sprintf(presetInfo, "[%d/%d]", currentPreset + 1, PRESET_COUNT);
+            display.fillRect(96, 0, 32, 8, SSD1306_BLACK);  // 清除预设编号区域
             display.setCursor(96, 0);
             display.print(presetInfo);
             display.display();
