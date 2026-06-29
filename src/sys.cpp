@@ -224,8 +224,8 @@ void SYS_ApplyPreset(uint8_t presetIndex) {
     memcpy(k4Buf, presets[presetIndex].keymap[3], 8);
     memcpy(k5Buf, presets[presetIndex].keymap[4], 8);
 
-    tone(BUZZER_PIN, 1000, 100);
-    delay(100);
+    // tone(BUZZER_PIN, 1000, 100);  // 调试时暂时禁用蜂鸣器
+    // delay(100);
 }
 
 /**

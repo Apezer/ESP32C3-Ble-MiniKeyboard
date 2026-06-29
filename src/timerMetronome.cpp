@@ -56,7 +56,7 @@ void Beep() {
     while (!keyState[4].isPressed) {
 
         for (uint8_t note = 0; note < 32; note++) {
-            tone(BUZZER_PIN, ggg_main[note], BEAT_QUARTER_GGG);
+            // tone(BUZZER_PIN, ggg_main[note], BEAT_QUARTER_GGG);  // 调试时暂时禁用蜂鸣器
             if (!digitalRead(BTN_5_PIN)) {
                 keyState[4].isPressed = true;
                 break;
@@ -145,7 +145,7 @@ void METRONOME_Handle() {
         uint32_t currentTime = millis();
         if (currentTime >= metro.nextBeatTime) {
             bool isDownBeat = (beatCnt == 0);
-            tone(BUZZER_PIN, isDownBeat ? 880 : 440, 50);
+            // tone(BUZZER_PIN, isDownBeat ? 880 : 440, 50);  // 调试时暂时禁用蜂鸣器
             if (isDownBeat) {
                 digitalWrite(STATUS_LED, HIGH);
                 ledBlinkTime = millis();

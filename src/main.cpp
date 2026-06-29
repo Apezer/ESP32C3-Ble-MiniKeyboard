@@ -87,7 +87,7 @@ void setup() {
 
     OLED_Init(7, 6, 32, 0);
     pinMode(STATUS_LED, OUTPUT);
-    pinMode(BUZZER_PIN, OUTPUT);
+    // pinMode(BUZZER_PIN, OUTPUT);  // 调试时暂时禁用蜂鸣器
 
     hw_timer_t* timer = timerBegin(0, 80, true);
     timerAttachInterrupt(timer, &KEY_Detect, true);
