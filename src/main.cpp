@@ -5,22 +5,28 @@
 *******************************************************/
 
 #include <Arduino.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 #include "Hid2Ble.h"
 
 extern "C" {
 
 #include "key.h"
-#include "oled.h"
 #include "battery.h"
 
 }
 
 #include "sys.h"
 #include "def.h"
+#include "char.h"
 #include "timerMetronome.h"
 
 #define SCREEN_ALMOST_TIMEOUT 20000
 #define SCREEN_TIMEOUT 30000
+#define OLED_ADDR 0x3C
+
+Adafruit_SSD1306 display(128, 32, &Wire, -1);
 
 void OLED_Update();
 void OLED_ChkTimeout();
@@ -85,7 +91,12 @@ void setup() {
     SYS_LoadPreset();
     SYS_ApplyPreset(currentPreset);
 
-    OLED_Init(7, 6, 32, 0);
+    Wire.begin(6, 7);  // SDA=GPIO6, SCL=GPIO7
+    display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR);
+    display.clearDisplay();
+    display.setTextColor(SSD1306_WHITE);
+    display.display();
+
     pinMode(STATUS_LED, OUTPUT);
     // pinMode(BUZZER_PIN, OUTPUT);  // 调试时暂时禁用蜂鸣器
 
@@ -107,7 +118,7 @@ void loop() {
     active = KEY_Update();
 
     if (BAT_IS_LOW) {
-        OLED_LowBrightness(true);
+        display.dim(true);
     }
 
     SYS_ModeSwitch();
@@ -127,22 +138,22 @@ void loop() {
     // Handle different modes
     switch (currentMode) {  // Clear OLED display and send a release event if mode changed
         case MODE_NORMAL:
-            if (!enableKey) { OLED_Clear(); keybrick.send2Ble(release); scrollPos = 0; }
+            if (!enableKey) { display.clearDisplay(); keybrick.send2Ble(release); scrollPos = 0; }
             enableKey = true;
             TIMER_Display();
             break;
         case MODE_TIMER_SET:
-            if (enableKey) { OLED_Clear(); keybrick.send2Ble(release); }
+            if (enableKey) { display.clearDisplay(); keybrick.send2Ble(release); }
             enableKey = false;
             TIMER_Set();
             break;
         case MODE_METRONOME:
-            if (enableKey) { OLED_Clear(); keybrick.send2Ble(release); }
+            if (enableKey) { display.clearDisplay(); keybrick.send2Ble(release); }
             enableKey = false;
             METRONOME_Set();
             break;
         case MODE_KEY_CONFIG:
-            if (enableKey) { OLED_Clear(); keybrick.send2Ble(release); scrollPos = 0; }
+            if (enableKey) { display.clearDisplay(); keybrick.send2Ble(release); scrollPos = 0; }
             enableKey = false;
             SYS_KeyConfig();
             break;
@@ -195,19 +206,19 @@ void KEY_Send() {
 void OLED_ChkTimeout() {
     static uint32_t lastCheck = 0;
     if (active) {
-        if (!BAT_IS_LOW) { OLED_LowBrightness(false); }
+        if (!BAT_IS_LOW) { display.dim(false); }
         lastActivityTime = millis();
         if (!screenOn) {
-            OLED_Power(true);
+            display.ssd1306_command(SSD1306_DISPLAYON);
             screenOn = true;
         }
     }
     if (millis() - lastCheck > 1000) {
         if (screenOn && (millis() - lastActivityTime > SCREEN_ALMOST_TIMEOUT)) {
-            OLED_LowBrightness(true);
+            display.dim(true);
         }
         if (screenOn && (millis() - lastActivityTime > SCREEN_TIMEOUT)) {
-            OLED_Power(false);
+            display.ssd1306_command(SSD1306_DISPLAYOFF);
             screenOn = false;
         }
         lastCheck = millis();
@@ -221,80 +232,115 @@ void OLED_Update() {
 
     switch (currentMode) {
         case MODE_NORMAL:
-            OLED_PrintImage(0, 0, 128, 1, (uint8_t*)Title);
-            OLED_PrintImage(2, 1, 8, 1, (uint8_t*)BT);
+            display.drawBitmap(0, 0, Title, 128, 8, SSD1306_WHITE);
+            display.drawBitmap(2, 8, BT, 8, 8, SSD1306_WHITE);
+            display.setTextSize(1);
+            display.setCursor(10, 8);
             if (sysStatus.bleConnected) {
-                OLED_PrintText(10, 1, "Connected  ", 8);
+                display.print("Connected  ");
             } else {
-                OLED_PrintText(10, 1, "Unconnected", 8);
+                display.print("Unconnected");
             }
-            OLED_PrintImage(90, 1, 15, 1, (uint8_t*)Bat);
-            OLED_PrintVar(100, 1, BAT_GetPercentage(), "int", 3);
-            OLED_PrintText(118, 1, "%", 8);
+            display.drawBitmap(90, 8, Bat, 8, 8, SSD1306_WHITE);
+            display.setCursor(100, 8);
+            char batStr[4];
+            sprintf(batStr, "%3d", BAT_GetPercentage());
+            display.print(batStr);
+            display.setCursor(118, 8);
+            display.print("%");
 
             static uint32_t lastScroll = 0;
             if (scrollPos < 5) {
+                display.fillRect(0, 16, 128, 8, SSD1306_BLACK);
+                display.setCursor(0, 16);
                 char keydesc[24];
                 sprintf(keydesc, "Key%d: %s", scrollPos + 1, presets[currentPreset].keyDescription[scrollPos]);
-                OLED_PrintText(0, 2, keydesc, 8);
+                display.print(keydesc);
             }
             if (millis() - lastScroll > 2000) {
                 scrollPos = (scrollPos + 1) % 5;
                 lastScroll = millis();
-                OLED_ClearPart(18, 2, 128, 4);
+                display.fillRect(0, 16, 128, 16, SSD1306_BLACK);
             }
+            display.display();
             break;
         case MODE_TIMER_SET:
-            OLED_PrintText(0, 0, "> Timer Settings", 8);
+            display.setCursor(0, 0);
+            display.setTextSize(1);
+            display.print("> Timer Settings");
+            display.setCursor(0, 8);
+            display.setTextSize(2);
             char timeStr[16];
             sprintf(timeStr, " <%02d:%02d>", timer.hours, timer.minutes);
-            OLED_PrintText(0, 1, timeStr, 16);
+            display.print(timeStr);
             if (timer.enabled) {
+                display.setTextSize(1);
+                display.setCursor(72, 8);
                 char timeEn[10];
                 uint32_t remainingSec = (timer.targetSec - millis()) / 1000;
                 sprintf(timeEn, "%02d:%02d[ON]", remainingSec / 3600, (remainingSec % 3600) / 60);
-                OLED_PrintText(72, 1, timeEn, 8);
+                display.print(timeEn);
             } else {
-                OLED_ClearPart(72, 1, 128, 2);
+                display.fillRect(72, 8, 56, 8, SSD1306_BLACK);
             }
-            OLED_PrintText(72, 2, "Cnt Down", 8);
-            OLED_PrintText(0, 3, "1|HH 2|MM 3|En 4|Rst", 8);
+            display.setTextSize(1);
+            display.setCursor(72, 16);
+            display.print("Cnt Down");
+            display.setCursor(0, 24);
+            display.print("1|HH 2|MM 3|En 4|Rst");
+            display.display();
             break;
         case MODE_METRONOME:
-            OLED_PrintText(0, 0, "> Metronome", 8);
+            display.setCursor(0, 0);
+            display.setTextSize(1);
+            display.print("> Metronome");
+            display.setCursor(0, 8);
+            display.setTextSize(2);
             char infoStr[32];
             sprintf(infoStr, "BPM:%03d SIG:%d/4", metro.bpm, metro.timeSig);
-            OLED_PrintText(0, 1, infoStr, 16);
-            OLED_PrintText(0, 3, "1|- 2|+ 3|Sig 4|", 8);
-            OLED_PrintText(96, 3, metro.isRunning ? "[RUN]" : "[OFF]", 8);
+            display.print(infoStr);
+            display.setTextSize(1);
+            display.setCursor(0, 24);
+            display.print("1|- 2|+ 3|Sig 4|");
+            display.setCursor(96, 24);
+            display.print(metro.isRunning ? "[RUN]" : "[OFF]");
+            display.display();
             break;
         case MODE_KEY_CONFIG:
 
             static uint32_t lastScroll_cfg = 0;
 
-            OLED_PrintText(0, 0, "> Config Mode", 8);
+            display.setTextSize(1);
+            display.setCursor(0, 0);
+            display.print("> Config Mode");
             if (changeName) {
-                OLED_ClearPart(30, 1, 128, 2);
+                display.fillRect(30, 8, 98, 8, SSD1306_BLACK);
                 changeName = false;
             }
-            OLED_PrintText(0, 1, " Tag:", 8);
-            OLED_PrintText(36, 1, (const char*)presets[currentPreset].name, 8);
+            display.setCursor(0, 8);
+            display.print(" Tag:");
+            display.setCursor(36, 8);
+            display.print((const char*)presets[currentPreset].name);
             for (int i = 0; i < 2; i++) {
                 if (scrollPos + i < 5) {
+                    display.fillRect(0, 16 + i * 8, 128, 8, SSD1306_BLACK);
+                    display.setCursor(0, 16 + i * 8);
                     char line[24];
                     sprintf(line, "- Key%d: %s", (scrollPos + i + 1), presets[currentPreset].keyDescription[scrollPos + i]);
-                    OLED_PrintText(0, 2 + i, line, 8);
+                    display.print(line);
                 }
             }
             if (millis() - lastScroll_cfg > 2000) {
                 scrollPos = (scrollPos + 1) % 4;
                 lastScroll_cfg = millis();
-                OLED_ClearPart(12, 2, 128, 4);
+                display.fillRect(0, 16, 128, 16, SSD1306_BLACK);
             }
 
             char presetInfo[8];
             sprintf(presetInfo, "[%d/%d]", currentPreset + 1, PRESET_COUNT);
-            OLED_PrintText(96, 0, presetInfo, 8);
+            display.setCursor(96, 0);
+            display.print(presetInfo);
+            display.display();
             break;
     }
 
@@ -302,12 +348,14 @@ void OLED_Update() {
 
 // If timer is enabled, display remaining time on OLED
 void TIMER_Display() {
+    display.setTextSize(1);
     if(timer.enabled) {
         char timeStr[32];
         uint32_t remainingSec = (timer.targetSec - millis()) / 1000;
         sprintf(timeStr, "TIM remaining: %02d:%02d", remainingSec / 3600, (remainingSec % 3600) / 60);
-        OLED_PrintText(0, 3, timeStr, 8);
+        display.setCursor(0, 24);
+        display.print(timeStr);
     } else {
-        OLED_ClearPart(0, 3, 128, 4);
+        display.fillRect(0, 24, 128, 8, SSD1306_BLACK);
     }
 }
