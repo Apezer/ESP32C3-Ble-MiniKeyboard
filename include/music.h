@@ -2,24 +2,24 @@
 #define __MUSIC_H__
 
 /*
-  Doodle Frequencies
+  Doodle 频率表
         Eb      F       G       Ab      Bb      C       D
   H1    622     698     785     832     932     1047    1176
   H2    1245    1398    1569    1661    1865    2093    2349
 
-  160bpm -> 93.75ms per beat
+  160bpm -> 每拍 93.75ms
 */
 
 /*
-  Ging Gang Goolie Frequencies
-        C       D       E       G       A    
+  Ging Gang Goolie 频率表
+        C       D       E       G       A
   H1    523     587     659     785     880
   H2    1047    1176    1319    1569    1760
 
-  100bpm -> 150ms per beat
+  100bpm -> 每拍 150ms
 */
 
-// Doodle Notes
+// Doodle 音符定义
 #define Eb 622
 #undef F
 #define F 698
@@ -29,7 +29,7 @@
 #define C 1047
 #define D 1176
 
-// Ging Gang Goolie Notes
+// Ging Gang Goolie 音符定义
 #define Do 523
 #define Re 587
 #define Mi 659

@@ -7,7 +7,7 @@
 #define ADC_VREF 2.8779789
 #define BAT_VOLT_DIVIDER 0.6357
 
-#define BAT_READ_TIME_GAP 10000 // 10s
+#define BAT_READ_TIME_GAP 10000 // 10秒读取一次
 
 #define BAT_LOW 3.30
 #define BAT_FULL 4.20

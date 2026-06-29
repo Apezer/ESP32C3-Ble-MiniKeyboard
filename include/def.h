@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 
-// Pin definitions
+// 引脚定义
 #define ADC_PIN         A0
 #define BUZZER_PIN      1
 #define BTN_1_PIN       2

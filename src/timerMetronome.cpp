@@ -105,7 +105,7 @@ void TIMER_Handle() {
         timerTriggered = false;
         timer.targetSec = 0;
         timer.currentSec = 0;
-        Beep(); // This function will stuck the program if the key is not pressed. To be fixed.
+        Beep(); // 此函数会阻塞程序直到按键按下，待修复。
     }
 }
 
@@ -151,7 +151,7 @@ void METRONOME_Handle() {
                 ledBlinkTime = millis();
                 ledOn = true;
             }
-            // delay(50);   HOLY, @WoodBreeze found the timing bug!
+            // delay(50);   @WoodBreeze 发现了这个时序 bug！
             beatCnt = (beatCnt + 1) % metro.timeSig;
             metro.nextBeatTime += 60000 / metro.bpm;
             if (ledOn && (currentTime - ledBlinkTime >= 50)) {

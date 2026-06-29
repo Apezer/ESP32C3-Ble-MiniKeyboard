@@ -35,29 +35,29 @@ void KEY_Send();
 Hid2Ble keybrick("ESP32C3 BLE Keybrick", "WilliTourt", 100);
 
 /**
-  * @brief  Determine whether should send key events to BLE HID device, and count down for timer. 10ms timer interrupt.
-  * @param  None
-  * @retval None
+  * @brief  检测按键状态并决定是否发送按键事件，同时处理倒计时递减。10ms 定时器中断。
+  * @param  无
+  * @retval 无
   */
 void IRAM_ATTR KEY_Detect() {
 
-    // Loop through each key to check its state and decide if a key event should be sent
+    // 遍历每个按键，检查状态并决定是否发送按键事件
     for (int i = 0; i < 5; i++) {
         if (keyState[i].isReleased) {
-            // If the key was released, ensure it is not pressed and set the flag to send a release event
+            // 如果按键已松开，确认未按下并标记发送释放事件
             if (!keyState[i].isPressed) {
                 sendRelease = true;
                 keyState[i].isReleased = false;
             }
         } else {
-            // If the key is pressed, mark it as shouldSend to send the press event later
+            // 如果按键已按下，标记为待发送状态
             if (keyState[i].isPressed) {
                 keyState[i].shouldSend = true;
             }
         }
     }
 
-    // Variable for timer count down (each second)
+    // 倒计时递减变量（每秒触发一次）
     static uint8_t timerCnt = 0;
     if (timer.enabled) {
         timerCnt++;
@@ -74,9 +74,9 @@ void IRAM_ATTR KEY_Detect() {
 }
 
 /**
-  * @brief  Update battery level to BLE HID device. 1min timer interrupt.
-  * @param  None
-  * @retval None
+  * @brief  向 BLE HID 设备更新电池电量。1分钟定时器中断。
+  * @param  无
+  * @retval 无
   */
 void IRAM_ATTR BLE_UpdateBAT() {
     if (keybrick.isConnected()) {
@@ -86,12 +86,12 @@ void IRAM_ATTR BLE_UpdateBAT() {
 
 void setup() {
 
-    // Initialize keys, load and apply system preset
+    // 初始化按键，加载并应用系统预设
     KEY_Init();
     SYS_LoadPreset();
     SYS_ApplyPreset(currentPreset);
 
-    Wire.begin(6, 7);  // SDA=GPIO6, SCL=GPIO7
+    Wire.begin(6, 7);  // SDA=GPIO6，SCL=GPIO7
     display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDR);
     display.clearDisplay();
     display.setTextColor(SSD1306_WHITE);
@@ -102,19 +102,19 @@ void setup() {
 
     hw_timer_t* timer = timerBegin(0, 80, true);
     timerAttachInterrupt(timer, &KEY_Detect, true);
-    timerAlarmWrite(timer, 10000, true);            // 10 ms
+    timerAlarmWrite(timer, 10000, true);            // 10 毫秒
     timerAlarmEnable(timer);
 
     hw_timer_t* timer1 = timerBegin(1, 800, true);
     timerAttachInterrupt(timer1, &BLE_UpdateBAT, true);
-    timerAlarmWrite(timer1, 6000000, true);         // 1 min
+    timerAlarmWrite(timer1, 6000000, true);         // 1 分钟
     timerAlarmEnable(timer1);
 
     keybrick.begin();
 }
 
 void loop() {
-    // Update key states and handle mode switching
+    // 更新按键状态并处理模式切换
     active = KEY_Update();
 
     if (BAT_IS_LOW) {
@@ -123,7 +123,7 @@ void loop() {
 
     SYS_ModeSwitch();
 
-    // Check BLE connection status and send key events if connected
+    // 检查 BLE 连接状态，已连接时发送按键事件
     if (keybrick.isConnected()) {
         sysStatus.bleConnected = true;
 
@@ -132,11 +132,11 @@ void loop() {
         }
     } else {
         sysStatus.bleConnected = false;
-        // How to reconnect automatically?
+        // 如何自动重连？
     }
 
-    // Handle different modes
-    switch (currentMode) {  // Clear OLED display and send a release event if mode changed
+    // 处理不同模式
+    switch (currentMode) {  // 模式切换时清屏并发送释放事件
         case MODE_NORMAL:
             if (!enableKey) { display.clearDisplay(); keybrick.send2Ble(release); scrollPos = 0; }
             enableKey = true;
@@ -168,20 +168,20 @@ void loop() {
 }
 
 /**
-  * @brief  Send key events to BLE HID device
-  * @param  None
-  * @retval None
+  * @brief  向 BLE HID 设备发送按键事件
+  * @param  无
+  * @retval 无
   */
 void KEY_Send() {
     for (int i = 0; i < 5; i++) {
         if (keyState[i].shouldSend && !keyState[i].isReleased) {
             // if (currentPreset == 4) { // MediaCtrl
             //     switch (i) {
-            //         case 0: keybrick.sendMedia2Ble(media[0]); break;
-            //         case 1: keybrick.sendMedia2Ble(media[1]); break;
-            //         case 2: keybrick.sendMedia2Ble(media[2]); break;
-            //         case 3: keybrick.sendMedia2Ble(media[3]); break;
-            //         case 4: keybrick.sendMedia2Ble(media[4]); break;
+            //         case 0: keybrick.sendMedia2Ble(media[0]); break;  // 媒体键1
+            //         case 1: keybrick.sendMedia2Ble(media[1]); break;  // 媒体键2
+            //         case 2: keybrick.sendMedia2Ble(media[2]); break;  // 媒体键3
+            //         case 3: keybrick.sendMedia2Ble(media[3]); break;  // 媒体键4
+            //         case 4: keybrick.sendMedia2Ble(media[4]); break;  // 媒体键5
             //     }
             // } else {
                 switch (i) {
@@ -202,7 +202,7 @@ void KEY_Send() {
     }
 }
 
-// Check if screen timeout has been reached and turn off OLED if necessary
+// 检查屏幕超时，必要时关闭 OLED
 void OLED_ChkTimeout() {
     static uint32_t lastCheck = 0;
     if (active) {
@@ -225,7 +225,7 @@ void OLED_ChkTimeout() {
     }
 }
 
-// OLED information display & prompts
+// OLED 信息显示与提示
 void OLED_Update() {
 
     if (!screenOn) { return; }
@@ -346,7 +346,7 @@ void OLED_Update() {
 
 }
 
-// If timer is enabled, display remaining time on OLED
+// 倒计时启用时，在 OLED 上显示剩余时间
 void TIMER_Display() {
     display.setTextSize(1);
     if(timer.enabled) {
