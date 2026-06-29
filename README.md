@@ -117,6 +117,57 @@
 
 ---
 
+## 按键处理架构
+
+按键从硬件到 BLE 发送共经过 4 层处理：
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  Layer 1: 硬件引脚读取 (key.c)                                │
+│  digitalRead() 读取 GPIO 2/3/4/5/8，低电平 = 按下              │
+├──────────────────────────────────────────────────────────────┤
+│  Layer 2: 消抖扫描 KEY_Update() (key.c, 主循环)                │
+│  5ms 消抖确认，记录 isPressed 状态                             │
+│  K4/K5 额外检测 2 秒长按                                       │
+├──────────────────────────────────────────────────────────────┤
+│  Layer 3: 状态机 KEY_Detect() (main.cpp, 10ms 硬件定时器 ISR)   │
+│  检测 isPressed → 设置 shouldSend = true                      │
+│  检测松开 → 设置 sendRelease = true                            │
+├──────────────────────────────────────────────────────────────┤
+│  Layer 4: BLE 发送 KEY_Send() (main.cpp, 主循环)               │
+│  shouldSend=true 时发送对应键值到 HID 设备                      │
+│  sendRelease=true 时发送释放事件                                │
+└──────────────────────────────────────────────────────────────┘
+```
+
+**按键数据流：**
+
+1. **按下瞬间** — `KEY_Update()` 消抖确认 `isPressed=true`
+2. **下一个 10ms 周期** — `KEY_Detect()` 检测到 `isPressed`，设置 `shouldSend=true`
+3. **主循环中** — `KEY_Send()` 发送 8 字节 HID 报文（修饰键 + 键码），标记 `isReleased=true`
+4. **松开后** — `KEY_Detect()` 确认松开，设置 `sendRelease=true`，主循环发送释放报文
+
+**HID 报文格式（8 字节）：**
+
+| 字节 | 内容 | 说明 |
+|------|------|------|
+| Byte 0 | 修饰键 | Ctrl/Shift/Alt/GUI 的位掩码 |
+| Byte 1 | 保留 | 固定 0x00 |
+| Byte 2 | 键码 1 | 主要按键的 HID Usage Code |
+| Byte 3-5 | 键码 2-4 | 支持同时按下最多 6 个键 |
+| Byte 6-7 | 预留 | 固定 0x00 |
+
+**模式与按键映射：**
+
+| 模式 | K1 | K2 | K3 | K4 | K5 |
+|------|-----|-----|-----|-----|-----|
+| 普通模式 | 预设键值 | 预设键值 | 预设键值 | 预设键值 | 预设键值 |
+| 倒计时设置 | 小时+1 | 分钟+1 | 启动 | 重置 | 返回 |
+| 节拍器 | BPM-1 | BPM+1 | 切换拍号 | 启停 | 返回 |
+| 预设配置 | 上一个 | 下一个 | 确认保存 | - | 退出 |
+
+---
+
 ## 硬件配置
 
 ### 引脚定义
@@ -206,9 +257,7 @@ pio device monitor
 │   ├── key.h                   # 按键状态定义
 │   ├── sys.h                   # 系统模式和预设定义
 │   ├── battery.h               # 电池监测定义
-│   ├── oled.h                  # OLED 驱动头文件
-│   ├── iic.h                   # 软件 I2C 头文件
-│   ├── char.h                  # 字体和图标数据
+│   ├── char.h                  # 图标位图数据声明
 │   ├── music.h                 # 音符和旋律定义
 │   └── timerMetronome.h        # 定时器和节拍器定义
 ├── lib/
@@ -217,13 +266,11 @@ pio device monitor
 │       ├── BleConnectionStatus  # 连接状态管理
 │       └── KeyboardOutputCallbacks
 ├── src/
-│   ├── main.cpp                # 主程序入口
+│   ├── main.cpp                # 主程序入口（OLED 显示、按键发送）
 │   ├── sys.cpp                 # 系统逻辑（预设、模式切换）
 │   ├── key.c                   # 按键扫描（消抖、长按检测）
-│   ├── oled.c                  # SSD1306 OLED 驱动
-│   ├── iic.c                   # 软件 I2C 实现
 │   ├── battery.c               # 电池电压检测
-│   ├── char.c                  # 字体和图标位图数据
+│   ├── char.c                  # 图标位图数据
 │   └── timerMetronome.cpp      # 倒计时器和节拍器逻辑
 └── test/
 ```
@@ -232,9 +279,11 @@ pio device monitor
 
 相对于原项目的改动：
 
-- 删除"Tab.b.b.b.b."预设（全部为 Tab 键，无实际用途）
+- OLED 驱动从自写软件 I2C 迁移至 Adafruit SSD1306 + GFX 库，删除 `oled.c`、`iic.c` 等文件
+- 删除"Tab.b.b.b.b."预设（全部为 Tab 键，无实际用途），预设数量 7→6
 - 预设 1 从"Win Combos"改为"Arrow Keys"（方向键 + Enter）
 - 蜂鸣器代码暂时注释（调试用）
+- 项目注释全部翻译为中文
 
 ## 致谢
 
